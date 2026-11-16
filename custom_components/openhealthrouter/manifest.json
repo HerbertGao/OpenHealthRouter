@@ -1,10 +1,10 @@
 {
   "domain": "openhealthrouter",
   "name": "OpenHealthRouter",
-  "version": "0.1.0",
-  "documentation": "https://github.com/herbertgao/OpenHealthRouter",
-  "issue_tracker": "https://github.com/herbertgao/OpenHealthRouter/issues",
   "codeowners": ["@herbertgao"],
+  "documentation": "https://github.com/herbertgao/OpenHealthRouter",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/herbertgao/OpenHealthRouter/issues",
   "requirements": [],
-  "iot_class": "local_push"
+  "version": "0.1.0"
 }
