@@ -20,7 +20,7 @@ async def test_setup_exposes_runtime_data(
     entry = await setup_entry([mapping_factory()])
     assert entry.state is ConfigEntryState.LOADED
     assert entry.runtime_data.store.is_available
-    assert len(entry.runtime_data.unsubs) == 1
+    assert entry.runtime_data.listeners == 1
     assert entry.runtime_data.closed is False
 
 

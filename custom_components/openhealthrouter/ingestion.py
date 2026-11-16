@@ -59,6 +59,7 @@ class RuntimeData:
     state: IngestionState = field(default_factory=IngestionState)
     tasks: set[Any] = field(default_factory=set)
     unsubs: list[Callable[[], None]] = field(default_factory=list)
+    listeners: int = 0
     closed: bool = False
     unload_ok: bool = False
 
@@ -154,6 +155,7 @@ def async_subscribe(hass: HomeAssistant, entry_id: str, runtime: RuntimeData) ->
         if not mapping.enabled:
             continue
         runtime.unsubs.append(_async_subscribe_one(hass, entry_id, runtime, mapping))
+        runtime.listeners += 1
 
 
 def load_mappings_of(hass: HomeAssistant, entry_id: str) -> list[EntityMapping]:

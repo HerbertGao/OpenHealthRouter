@@ -160,7 +160,7 @@ class OhrOptionsFlow(OptionsFlow):
         # 回到菜单意味着上一次编辑被放弃：复位阶段标记，避免下次直接跳过选择
         self._editing_id = None
         return self.async_show_menu(
-            step_id="init", menu_options=["add", "edit", "delete"]
+            step_id="init", menu_options=["add", "edit", "delete", "webhook"]
         )
 
     def _mappings(self) -> list[dict[str, Any]]:
@@ -207,6 +207,59 @@ class OhrOptionsFlow(OptionsFlow):
                         return await self._store_mappings(mappings)
         return self.async_show_form(
             step_id="add", data_schema=_mapping_schema(user_input), errors=errors
+        )
+
+    def _target_schema(self) -> Schema:
+        current = dict(self.config_entry.options.get("webhook_target") or {})
+        return Schema(
+            {
+                Required("name", default=str(current.get("name", ""))): str,
+                Required("url", default=str(current.get("url", ""))): str,
+                # 密钥不回填：每次都要重新输入
+                Required("secret", default=""): str,
+            }
+        )
+
+    def _validate_target(self, user_input: dict[str, Any]) -> dict[str, str]:
+        from urllib.parse import urlsplit
+
+        errors: dict[str, str] = {}
+        name = str(user_input.get("name", "")).strip()
+        url = str(user_input.get("url", "")).strip()
+        secret = str(user_input.get("secret", ""))
+        if not name or len(name) > 64 or "://" in name:
+            errors["target_name_invalid"] = "target_name_invalid"
+        if not url.lower().startswith("https://"):
+            errors["target_url_not_https"] = "target_url_not_https"
+        else:
+            parts = urlsplit(url)
+            if parts.username or parts.password:
+                errors["target_url_has_credentials"] = "target_url_has_credentials"
+            if parts.query:
+                errors["target_url_has_query"] = "target_url_has_query"
+        if not secret:
+            errors["target_secret_required"] = "target_secret_required"
+        return errors
+
+    async def async_step_webhook(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = self._validate_target(user_input)
+            if not errors:
+                new_options = dict(self.config_entry.options)
+                new_options["webhook_target"] = {
+                    "name": str(user_input["name"]).strip(),
+                    "url": str(user_input["url"]).strip(),
+                    "secret": str(user_input["secret"]),
+                }
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, options=new_options
+                )
+                return self.async_create_entry(title="", data=new_options)
+        return self.async_show_form(
+            step_id="webhook", data_schema=self._target_schema(), errors=errors
         )
 
     def _select_mapping_schema(self) -> Schema:

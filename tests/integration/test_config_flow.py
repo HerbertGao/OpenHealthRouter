@@ -109,7 +109,7 @@ async def test_delete_mapping_stops_ingestion(
 ) -> None:
     set_state()
     entry = await setup_entry([mapping_factory()])
-    assert len(entry.runtime_data.unsubs) == 1
+    assert entry.runtime_data.listeners == 1
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(
@@ -124,7 +124,7 @@ async def test_delete_mapping_stops_ingestion(
 
     assert result.get("type") is FlowResultType.CREATE_ENTRY
     assert entry.options.get("mappings") == []
-    assert len(entry.runtime_data.unsubs) == 0
+    assert entry.runtime_data.listeners == 0
     assert read_events(entry) == []
 
 
@@ -162,4 +162,4 @@ async def test_edit_that_changes_metric_removes_old_mapping(
     assert len(mappings) == 1, mappings
     assert mappings[0]["metric"] == "body.bmi"
     assert mappings[0]["mapping_id"] != original_id
-    assert len(entry.runtime_data.unsubs) == 1
+    assert entry.runtime_data.listeners == 1

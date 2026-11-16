@@ -18,7 +18,8 @@
         "menu_options": {
           "add": "Add mapping",
           "edit": "Edit mapping",
-          "delete": "Delete mapping"
+          "delete": "Delete mapping",
+          "webhook": "Configure webhook target"
         }
       },
       "add": {
@@ -65,6 +66,15 @@
         "data": {
           "mapping_id": "Mapping"
         }
+      },
+      "webhook": {
+        "title": "Webhook target",
+        "description": "Exports are only sent after an explicit confirmation call. The secret is stored with the integration and is never shown again.",
+        "data": {
+          "name": "Target name (max 64 chars, no ://)",
+          "url": "HTTPS URL (no credentials, no query string)",
+          "secret": "HMAC secret (not prefilled)"
+        }
       }
     },
     "error": {
@@ -77,7 +87,12 @@
       "time_source_missing": "Declare an observation time attribute or enable the fallback.",
       "provenance_not_registered": "The data nature is not supported.",
       "invalid": "The submitted mapping is invalid.",
-      "mapping_exists": "A mapping for this entity and metric already exists."
+      "mapping_exists": "A mapping for this entity and metric already exists.",
+      "target_name_invalid": "The target name must be 1-64 characters without ://.",
+      "target_url_not_https": "The URL must use HTTPS.",
+      "target_url_has_credentials": "The URL must not contain credentials.",
+      "target_url_has_query": "The URL must not contain a query string.",
+      "target_secret_required": "A secret is required to sign deliveries."
     },
     "abort": {
       "no_mappings": "No mappings are configured yet.",

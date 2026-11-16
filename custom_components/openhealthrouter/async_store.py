@@ -14,6 +14,7 @@ from typing import Any
 from .models import HealthEvent
 from .store import (
     DeleteResult,
+    DeliveryRecord,
     EventStore,
     InsertResult,
     QueryFilters,
@@ -74,6 +75,13 @@ class AsyncEventStore:
 
     async def get_event(self, event_id: str) -> StoredEvent | None:
         return await self._run(self._store.get_event, event_id)
+
+    async def record_delivery(self, record: DeliveryRecord) -> None:
+        async with self._write_lock:
+            await self._run(self._store.record_delivery, record)
+
+    async def list_deliveries(self, limit: int = 50) -> list[dict[str, Any]]:
+        return await self._run(self._store.list_deliveries, limit)
 
     async def close(self) -> None:
         async with self._write_lock:

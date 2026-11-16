@@ -13,13 +13,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .async_store import AsyncEventStore
-from .const import DB_DIR, DB_FILENAME, PLATFORMS
+from .const import DB_DIR, DB_FILENAME, DOMAIN, PLATFORMS
 from .ingestion import RuntimeData, async_subscribe
+from .services import SERVICE_EXPORT_WEBHOOK, async_register_services
+from .views import ExportNdjsonView
 
 _LOGGER = logging.getLogger(__name__)
 
 DRAIN_TIMEOUT_S = 10
 CANCEL_GRACE_S = 5
+_VIEW_REGISTERED = "export_view_registered"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -36,6 +39,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         async_subscribe(hass, entry.entry_id, runtime)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        # HA 没有视图注销 API：只注册一次，卸载后由视图内部返回 404。
+        # hass.http 为 None 表示当前没有 HTTP 组件（例如纯内部场景），跳过注册。
+        domain_data = hass.data.setdefault(DOMAIN, {})
+        if hass.http is not None and not domain_data.get(_VIEW_REGISTERED):
+            hass.http.register_view(ExportNdjsonView())
+            domain_data[_VIEW_REGISTERED] = True
+        async_register_services(hass)
+        runtime.unsubs.append(
+            lambda: hass.services.async_remove(DOMAIN, SERVICE_EXPORT_WEBHOOK)
+        )
     except BaseException:
         # 回滚：否则 HA 重试 setup 会再订阅一次，同一变化被处理两遍
         runtime.closed = True

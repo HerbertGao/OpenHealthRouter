@@ -132,3 +132,50 @@ def read_events(hass: HomeAssistant) -> Callable[[Any], list[Any]]:
         return events
 
     return read
+
+
+@pytest.fixture
+def make_event() -> Callable[..., Any]:
+    """合成健康事件（与单元测试同形），供导出测试直接写库。"""
+
+    def factory(**overrides: Any) -> Any:
+        from custom_components.openhealthrouter.models import HealthEvent
+
+        payload: dict[str, Any] = {
+            "schemaVersion": "1.0",
+            "subjectRef": "subject_local_1",
+            "metric": "body.weight",
+            "value": 72.4,
+            "unit": "kg",
+            "observedAt": {
+                "start": "2026-11-12T08:00:00+08:00",
+                "precision": "second",
+                "timezone": "Asia/Shanghai",
+            },
+            "recordedAt": "2026-11-12T08:00:01+08:00",
+            "source": {
+                "kind": "ha_entity",
+                "integration": "synthetic_scale",
+                "entityId": WEIGHT_ENTITY,
+            },
+            "deviceRef": "device_local_1",
+            "provenance": {"type": "observation"},
+            "quality": {"issues": []},
+            "context": {},
+            "evidence": {"rawAttributes": {"unit_of_measurement": "kg"}},
+        }
+        payload.update(overrides)
+        return HealthEvent.model_validate(payload)
+
+    return factory
+
+
+@pytest.fixture
+def seed_events(hass: HomeAssistant) -> Callable[..., Any]:
+    """直接写入事件表（绕过订阅），用于构造确定的导出样本。"""
+
+    async def _seed(entry: Any, events: list[Any]) -> None:
+        store = entry.runtime_data.store.store
+        await hass.async_add_executor_job(store.insert_events, events)
+
+    return _seed

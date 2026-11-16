@@ -14,6 +14,8 @@ from custom_components.openhealthrouter.migrations import (
 )
 from custom_components.openhealthrouter.store import EventStore, StoreUnavailable
 
+_NEXT_VERSION = max(version for version, _ in MIGRATIONS) + 1
+
 
 def _tables(conn: sqlite3.Connection) -> set[str]:
     rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
@@ -105,7 +107,7 @@ def test_migration_failure_rolls_back_and_blocks_writes(
     conn = sqlite3.connect(db, isolation_level=None)
     try:
         with pytest.raises(RuntimeError):
-            apply_migrations(conn, [*MIGRATIONS, (2, _broken_migration)])
+            apply_migrations(conn, [*MIGRATIONS, (_NEXT_VERSION, _broken_migration)])
         assert current_version(conn) == len(MIGRATIONS)
         assert "broken_probe" not in _tables(conn)
     finally:
@@ -142,7 +144,7 @@ def test_fixed_migration_reruns_after_failure(tmp_path: Path, make_event) -> Non
     conn = sqlite3.connect(db, isolation_level=None)
     try:
         with pytest.raises(RuntimeError):
-            apply_migrations(conn, [*MIGRATIONS, (2, _broken_migration)])
+            apply_migrations(conn, [*MIGRATIONS, (_NEXT_VERSION, _broken_migration)])
         assert current_version(conn) == len(MIGRATIONS)
     finally:
         conn.close()
@@ -152,7 +154,10 @@ def test_fixed_migration_reruns_after_failure(tmp_path: Path, make_event) -> Non
 
     conn = sqlite3.connect(db, isolation_level=None)
     try:
-        assert apply_migrations(conn, [*MIGRATIONS, (2, good_v2)]) == 2
+        assert (
+            apply_migrations(conn, [*MIGRATIONS, (_NEXT_VERSION, good_v2)])
+            == _NEXT_VERSION
+        )
         assert "idx_probe_v2" in _indexes(conn)
     finally:
         conn.close()
@@ -199,7 +204,10 @@ def test_historical_version_upgrade_preserves_events(
 
     conn = sqlite3.connect(db, isolation_level=None)
     try:
-        assert apply_migrations(conn, [*MIGRATIONS, (2, add_v2)]) == 2
+        assert (
+            apply_migrations(conn, [*MIGRATIONS, (_NEXT_VERSION, add_v2)])
+            == _NEXT_VERSION
+        )
         assert int(conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]) == 3
     finally:
         conn.close()
@@ -215,5 +223,68 @@ def test_historical_version_upgrade_preserves_events(
         after_query, after_total = store.query()
         assert after_total == before_total
         assert [e.event_id for e in after_query] == [e.event_id for e in before_query]
+    finally:
+        store.close()
+
+
+def test_v1_upgrades_to_v2_and_keeps_events(tmp_path: Path, make_event) -> None:
+    import sqlite3
+
+    from custom_components.openhealthrouter.store import EventStore, dump_payload
+
+    db = tmp_path / "events.db"
+    conn = sqlite3.connect(db, isolation_level=None)
+    try:
+        apply_migrations(conn, MIGRATIONS[:1])  # 只到 v1
+        assert current_version(conn) == 1
+        event = make_event()
+        conn.execute(
+            "INSERT INTO events (event_id, subject_ref, metric, observed_start_key, "
+            "observed_end_key, precision, superseded, payload_json, inserted_at_utc) "
+            "VALUES (?,?,?,?,?,?,0,?,?)",
+            (
+                event.event_id,
+                event.subject_ref,
+                event.metric,
+                "2026-11-12T00:00:00.000000Z",
+                None,
+                "second",
+                dump_payload(event),
+                "2026-11-12T00:00:01.000000Z",
+            ),
+        )
+    finally:
+        conn.close()
+
+    store = EventStore.open(db)
+    try:
+        assert store.schema_version == max(v for v, _ in MIGRATIONS)
+        stored = store.get_event(event.event_id)
+        assert stored is not None
+        assert stored.event.value == event.value
+        assert store.list_deliveries() == []
+    finally:
+        store.close()
+
+
+def test_orphan_deliveries_table_does_not_break_reinstall(tmp_path: Path) -> None:
+    """回滚后 user_version 停在 2；若版本被手工回退，IF NOT EXISTS 必须兜住。"""
+    import sqlite3
+
+    from custom_components.openhealthrouter.store import EventStore
+
+    db = tmp_path / "events.db"
+    EventStore.open(db).close()
+
+    conn = sqlite3.connect(db, isolation_level=None)
+    try:
+        conn.execute("PRAGMA user_version = 1")  # 伪造"表还在但版本回退"
+    finally:
+        conn.close()
+
+    store = EventStore.open(db)
+    try:
+        assert store.is_available
+        assert store.schema_version == max(v for v, _ in MIGRATIONS)
     finally:
         store.close()

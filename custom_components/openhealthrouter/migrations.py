@@ -41,7 +41,37 @@ def _migrate_v1(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX idx_events_correction ON events (correction_of)")
 
 
-MIGRATIONS: list[Migration] = [(1, _migrate_v1)]
+def _migrate_v2(conn: sqlite3.Connection) -> None:
+    """只新增投递审计表与索引，不改 events 表。
+
+    用 IF NOT EXISTS：卸载回滚后 user_version 停在 2，重装时该迁移不会重跑，
+    但手工回退过版本号的环境仍可能遇到表已存在。
+    """
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS deliveries (
+            delivery_id     TEXT PRIMARY KEY,
+            target_ref      TEXT NOT NULL,
+            filter_digest   TEXT NOT NULL,
+            since_key       TEXT,
+            until_key       TEXT,
+            event_count     INTEGER NOT NULL CHECK (event_count >= 0),
+            event_ids_json  TEXT NOT NULL,
+            status          TEXT NOT NULL
+                            CHECK (status IN ('success','failed','skipped_no_events')),
+            error_category  TEXT,
+            created_at      TEXT NOT NULL,
+            CHECK (status <> 'failed' OR error_category IS NOT NULL)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_deliveries_created_at "
+        "ON deliveries (created_at)"
+    )
+
+
+MIGRATIONS: list[Migration] = [(1, _migrate_v1), (2, _migrate_v2)]
 
 
 def current_version(conn: sqlite3.Connection) -> int:

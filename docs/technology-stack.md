@@ -64,7 +64,7 @@ Python 对本项目的优势是：HA API 可直接调用，AI 训练语料和示
 HA 边界继续使用原生能力：
 
 - Config Flow / Options Flow 管理映射与目标；
-- 表单 schema 用 `probatio.Schema`（HA 2026.10 起 `async_show_form` 期望的类型，voluptuous 的后继）搭配 HA Selector；Service 侧按 HA 当期要求使用 `voluptuous`；
+- 表单 schema 用 `probatio.Schema`（HA 2026.10 起 `async_show_form` 期望的类型，voluptuous 的后继）搭配 HA Selector；Service 的 `schema` 同样只接受 `probatio.Schema`（HA 2026.10 起 ServiceRegistry 已不接受 voluptuous schema）；
 - `async_track_state_change_event` 订阅选定实体；
 - `hass.async_add_executor_job` 执行同步 SQLite 工作；
 - HA 注入的 aiohttp session 发送 Webhook；

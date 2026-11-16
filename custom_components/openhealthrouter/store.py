@@ -59,11 +59,67 @@ class StoredEvent:
 class QueryFilters:
     subject_ref: str | None = None
     metric: str | None = None
+    metrics: frozenset[str] | None = None
     since: datetime | None = None
     until: datetime | None = None
     limit: int = 100
     offset: int = 0
     include_superseded: bool = False
+
+
+@dataclass(frozen=True)
+class Page:
+    """键集分页结果：cursor 是最后一行原始行的排序键（即使该行被上层过滤）。"""
+
+    events: list[HealthEvent]
+    cursor: tuple[str, str, str] | None
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class DeliveryRecord:
+    delivery_id: str
+    target_ref: str
+    filter_digest: str
+    since_key: str | None
+    until_key: str | None
+    event_count: int
+    event_ids: list[str]
+    status: str
+    error_category: str | None
+    created_at: str
+
+
+def _where_parts(filters: QueryFilters) -> tuple[list[str], list[Any]]:
+    """唯一 where 构件的来源：query() 与 fetch_page() 必须共用它，避免语义漂移。"""
+    where: list[str] = []
+    params: list[Any] = []
+    if not filters.include_superseded:
+        where.append("superseded = 0")
+    if filters.subject_ref is not None:
+        where.append("subject_ref = ?")
+        params.append(filters.subject_ref)
+    if filters.metric is not None:
+        where.append("metric = ?")
+        params.append(filters.metric)
+    if filters.metrics is not None:
+        if not filters.metrics:
+            where.append("0")
+        else:
+            placeholders = ",".join("?" for _ in filters.metrics)
+            where.append(f"metric IN ({placeholders})")
+            params.extend(sorted(filters.metrics))
+    if filters.since is not None:
+        where.append(
+            "((observed_end_key IS NULL AND observed_start_key >= ?) "
+            "OR (observed_end_key IS NOT NULL AND observed_end_key > ?))"
+        )
+        since_key = time_key(filters.since)
+        params.extend([since_key, since_key])
+    if filters.until is not None:
+        where.append("observed_start_key < ?")
+        params.append(time_key(filters.until))
+    return where, params
 
 
 def time_key(moment: datetime) -> str:
@@ -278,26 +334,7 @@ class EventStore:
         self, filters: QueryFilters | None = None
     ) -> tuple[list[HealthEvent], int]:
         filters = filters or QueryFilters()
-        where: list[str] = []
-        params: list[Any] = []
-        if not filters.include_superseded:
-            where.append("superseded = 0")
-        if filters.subject_ref is not None:
-            where.append("subject_ref = ?")
-            params.append(filters.subject_ref)
-        if filters.metric is not None:
-            where.append("metric = ?")
-            params.append(filters.metric)
-        if filters.since is not None:
-            where.append(
-                "((observed_end_key IS NULL AND observed_start_key >= ?) "
-                "OR (observed_end_key IS NOT NULL AND observed_end_key > ?))"
-            )
-            since_key = time_key(filters.since)
-            params.extend([since_key, since_key])
-        if filters.until is not None:
-            where.append("observed_start_key < ?")
-            params.append(time_key(filters.until))
+        where, params = _where_parts(filters)
         clause = f"WHERE {' AND '.join(where)}" if where else ""
         count_sql = f"SELECT COUNT(*) FROM events {clause}"
         page_sql = (
@@ -311,6 +348,39 @@ class EventStore:
                 page_sql, [*params, filters.limit, filters.offset]
             ).fetchall()
         return [load_payload(row[0]) for row in rows], total
+
+    def fetch_page(
+        self,
+        filters: QueryFilters,
+        *,
+        after: tuple[str, str, str] | None = None,
+        limit: int = 200,
+    ) -> Page:
+        """键集分页：游标用显式混合比较，禁止行值比较（排序末位是升序）。"""
+        where, params = _where_parts(filters)
+        if after is not None:
+            start_key, inserted, event_id = after
+            where.append(
+                "(observed_start_key < ? "
+                "OR (observed_start_key = ? "
+                "AND (inserted_at_utc < ? "
+                "OR (inserted_at_utc = ? AND event_id > ?))))"
+            )
+            params.extend([start_key, start_key, inserted, inserted, event_id])
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        sql = (
+            "SELECT payload_json, observed_start_key, inserted_at_utc, event_id "
+            f"FROM events {clause} "
+            "ORDER BY observed_start_key DESC, inserted_at_utc DESC, event_id "
+            "LIMIT ?"
+        )
+        with closing(self._new_connection()) as conn:
+            rows = conn.execute(sql, [*params, limit + 1]).fetchall()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        events = [load_payload(row[0]) for row in rows]
+        cursor = (rows[-1][1], rows[-1][2], rows[-1][3]) if rows else after
+        return Page(events=events, cursor=cursor, has_more=has_more)
 
     def get_event(self, event_id: str) -> StoredEvent | None:
         with closing(self._new_connection()) as conn:
@@ -425,6 +495,35 @@ class EventStore:
                     pass
             raise
         return target_path
+
+    def record_delivery(self, record: DeliveryRecord) -> None:
+        """写入投递审计：走与事件相同的单写者事务路径。"""
+        self._write(_insert_delivery_row, record)
+
+    def list_deliveries(self, limit: int = 50) -> list[dict[str, Any]]:
+        """按创建时间倒序读取投递审计（不含任何载荷字段）。"""
+        sql = (
+            "SELECT delivery_id, target_ref, filter_digest, since_key, until_key, "
+            "event_count, event_ids_json, status, error_category, created_at "
+            "FROM deliveries ORDER BY created_at DESC, delivery_id DESC LIMIT ?"
+        )
+        with closing(self._new_connection()) as conn:
+            rows = conn.execute(sql, (limit,)).fetchall()
+        return [
+            {
+                "delivery_id": row[0],
+                "target_ref": row[1],
+                "filter_digest": row[2],
+                "since_key": row[3],
+                "until_key": row[4],
+                "event_count": row[5],
+                "event_ids": _load_event_ids(row[6]),
+                "status": row[7],
+                "error_category": row[8],
+                "created_at": row[9],
+            }
+            for row in rows
+        ]
 
     def _write(self, operation, *args):  # noqa: ANN001, ANN201 - 内部事务包装
         """写锁 + 独立连接 + 显式事务；失败统一映射为 StoreError。"""
@@ -553,6 +652,44 @@ def _check_business_invariants(conn: sqlite3.Connection) -> None:
     missing_end = int(conn.execute(day_sql).fetchone()[0])
     if missing_end:
         raise StoreError(f"日期级事件缺少区间上界: {missing_end} 条")
+
+
+def _insert_delivery_row(conn: sqlite3.Connection, record: DeliveryRecord) -> None:
+    """插入一条投递审计；约束冲突归类为存储错误而不是漏出驱动异常。"""
+    try:
+        conn.execute(
+            """
+            INSERT INTO deliveries (
+                delivery_id, target_ref, filter_digest, since_key, until_key,
+                event_count, event_ids_json, status, error_category, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record.delivery_id,
+                record.target_ref,
+                record.filter_digest,
+                record.since_key,
+                record.until_key,
+                record.event_count,
+                json.dumps(record.event_ids, separators=(",", ":")),
+                record.status,
+                record.error_category,
+                record.created_at,
+            ),
+        )
+    except sqlite3.IntegrityError as exc:
+        raise StoreError(f"投递记录被拒绝: {type(exc).__name__}") from exc
+
+
+def _load_event_ids(raw: str) -> list[str]:
+    """投递记录里的 ID 列表；损坏数据归类为存储错误而不是让 JSON 异常外泄。"""
+    try:
+        parsed = json.loads(raw)
+    except ValueError as exc:
+        raise StoreError(f"投递记录损坏: {type(exc).__name__}") from exc
+    if not isinstance(parsed, list):
+        raise StoreError("投递记录损坏: event_ids 不是列表")
+    return [str(item) for item in parsed]
 
 
 def log_name(path: Path) -> str:

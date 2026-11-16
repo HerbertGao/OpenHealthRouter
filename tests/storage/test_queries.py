@@ -387,3 +387,114 @@ def test_pagination_tie_break_with_identical_start_keys(
         paged.extend(page)
     assert [event.event_id for event in paged] == [event.event_id for event in full]
     assert len({event.event_id for event in paged}) == 3
+
+
+def test_multi_metric_filter(tmp_path: Path, make_event) -> None:
+    store = EventStore.open(tmp_path / "events.db")
+    try:
+        weight = make_event()
+        fat = make_event(
+            metric="body.fat_percentage",
+            unit="%",
+            value=18.5,
+            provenance={"type": "derived.vendor"},
+            quality={"issues": ["estimated"]},
+        )
+        other = make_event(metric="body.bmi", unit="kg/m²", value=23.1)
+        store.insert_events([weight, fat, other])
+
+        events, total = store.query(
+            QueryFilters(metrics=frozenset({"body.weight", "body.fat_percentage"}))
+        )
+        assert total == 2
+        assert {event.metric for event in events} == {
+            "body.weight",
+            "body.fat_percentage",
+        }
+    finally:
+        store.close()
+
+
+def test_fetch_page_matches_query_and_has_no_duplicates(
+    tmp_path: Path, make_event
+) -> None:
+    store = EventStore.open(tmp_path / "events.db")
+    try:
+        events = [
+            make_event(
+                value=70.0 + index,
+                observedAt={
+                    "start": f"2026-11-12T08:0{index}:00+08:00",
+                    "precision": "second",
+                    "timezone": "Asia/Shanghai",
+                },
+            )
+            for index in range(5)
+        ]
+        store.insert_events(events)
+        filters = QueryFilters(limit=2)
+
+        full, total = store.query(QueryFilters(limit=100))
+        assert total == 5
+
+        paged: list[HealthEvent] = []
+        after = None
+        while True:
+            page = store.fetch_page(filters, after=after, limit=2)
+            paged.extend(page.events)
+            if not page.has_more:
+                break
+            after = page.cursor
+        assert [event.event_id for event in paged] == [event.event_id for event in full]
+        assert len({event.event_id for event in paged}) == 5
+    finally:
+        store.close()
+
+
+def test_fetch_page_survives_identical_sort_keys(tmp_path: Path, make_event) -> None:
+    """同一 (start_key, inserted_at_utc) 下多个 event_id 必须跨页且不重复不丢。"""
+    import sqlite3
+
+    from custom_components.openhealthrouter.store import dump_payload
+
+    db = tmp_path / "events.db"
+    store = EventStore.open(db)
+    try:
+        # 内容不同 → event_id 不同；但排序前两列完全相同，专打混合游标的边界
+        events = [make_event(value=70.0 + index) for index in range(5)]
+        conn = sqlite3.connect(db)
+        try:
+            for event in events:
+                conn.execute(
+                    "INSERT INTO events (event_id, subject_ref, metric, "
+                    "observed_start_key, observed_end_key, precision, superseded, "
+                    "payload_json, inserted_at_utc) VALUES (?,?,?,?,?,?,0,?,?)",
+                    (
+                        event.event_id,
+                        event.subject_ref,
+                        event.metric,
+                        "2026-11-12T00:00:00.000000Z",
+                        None,
+                        "second",
+                        dump_payload(event),
+                        "2026-11-12T00:00:01.000000Z",
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        ids: list[str] = []
+        after = None
+        while True:
+            page = store.fetch_page(QueryFilters(limit=2), after=after, limit=2)
+            ids.extend(event.event_id for event in page.events if event.event_id)
+            if not page.has_more:
+                break
+            after = page.cursor
+
+        assert len(ids) == 5, ids
+        assert len(set(ids)) == 5, ids
+        assert ids == sorted(ids), "同组内 event_id 升序"
+    finally:
+        store.close()
