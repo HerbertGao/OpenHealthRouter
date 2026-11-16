@@ -5,6 +5,9 @@
     "@herbertgao"
   ],
   "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/herbertgao/OpenHealthRouter",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/herbertgao/OpenHealthRouter/issues",

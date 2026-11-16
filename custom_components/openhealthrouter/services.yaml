@@ -1,0 +1,71 @@
+export_webhook:
+  name: Export to webhook
+  description: >-
+    Preview or deliver matching events to the configured HTTPS webhook.
+    Without confirm it only returns a preview and sends nothing.
+  fields:
+    metric:
+      name: Metrics
+      description: Metrics to export. Omit to export all registered metrics.
+      required: false
+      example: body.weight
+      selector:
+        text:
+          multiple: true
+    since:
+      name: Since
+      description: Start of the window (inclusive), ISO 8601 with timezone.
+      required: false
+      selector:
+        datetime:
+    until:
+      name: Until
+      description: End of the window (exclusive), ISO 8601 with timezone.
+      required: false
+      selector:
+        datetime:
+    quality_status:
+      name: Quality statuses
+      description: Quality statuses to include. Defaults to valid.
+      required: false
+      example: valid
+      selector:
+        text:
+          multiple: true
+    include_raw_attributes:
+      name: Include raw attributes
+      description: Include the original entity attributes in the export.
+      required: false
+      default: false
+      selector:
+        boolean:
+    include_device_refs:
+      name: Include device references
+      description: Include local device references in the export.
+      required: false
+      default: false
+      selector:
+        boolean:
+    include_subject:
+      name: Include subject reference
+      description: >-
+        Include the real subject reference instead of a redacted placeholder.
+      required: false
+      default: false
+      selector:
+        boolean:
+    include_context:
+      name: Include measurement context
+      description: Include the measurement context block in the export.
+      required: false
+      default: false
+      selector:
+        boolean:
+    confirm:
+      name: Confirm delivery
+      description: >-
+        When true the export is actually sent. Sent data cannot be recalled.
+      required: false
+      default: false
+      selector:
+        boolean:
