@@ -25,7 +25,7 @@
 ## 5. 端到端流程验证
 
 - [x] 5.1 在仓库中做一次最小模拟改动（如向 `tests/fixtures/synthetic/` 添加一个合成样例 JSON），实际走"本地全部门禁 + 独立 review"流程，并验证最终提交上 Ruff/Pyright/pytest/check_contracts 全部通过
-- [ ] 5.2 验证 CI 在首个真实提交上全绿，并确认 `AGENTS.md` 中描述的 Agent 全流程（规格 → 实现 → 门禁 → review）可被新的 Agent 会话仅依据仓库内文件复现
+- [x] 5.2 验证 CI 在首个真实提交上全绿，并确认 `AGENTS.md` 中描述的 Agent 全流程（规格 → 实现 → 门禁 → review）可被新的 Agent 会话仅依据仓库内文件复现
 
 ## Workflow follow-up
 
