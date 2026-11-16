@@ -12,7 +12,6 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import (
     Event,
     EventStateChangedData,
@@ -36,9 +35,6 @@ from .mapping import (
 from .store import StoreError
 
 _LOGGER = logging.getLogger(__name__)
-
-# 这两个状态直接判定，交给纯函数前先短路，避免无意义的属性解析
-_IDLE_STATES = {STATE_UNKNOWN, STATE_UNAVAILABLE}
 
 
 def update_signal(entry_id: str) -> str:
@@ -70,11 +66,11 @@ class RuntimeData:
 def load_mappings(entry_options: dict[str, Any]) -> list[EntityMapping]:
     """从 options 读出映射；非法条目跳过并记录，不阻塞启动。"""
     mappings: list[EntityMapping] = []
-    for raw in entry_options.get("mappings", []):
+    for index, raw in enumerate(entry_options.get("mappings", [])):
         try:
             mappings.append(EntityMapping.model_validate(raw))
         except ValueError:
-            _LOGGER.error("忽略无法解析的映射配置")
+            _LOGGER.error("忽略无法解析的映射配置 index=%s", index)
     return mappings
 
 
@@ -121,13 +117,14 @@ async def async_ingest_state(
 
     try:
         insert = await runtime.store.insert_events([result])
-    except StoreError as exc:
+    except StoreError:
         runtime.state = replace(runtime.state, last_skip_reason=REASON_STORE_ERROR)
         _LOGGER.error(
-            "摄入写入失败 entity_id=%s mapping_id=%s reason=%s",
+            "摄入写入失败 entity_id=%s mapping_id=%s event_id=%s reason=%s",
             state.entity_id,
             mapping.mapping_id,
-            type(exc).__name__,
+            result.event_id,
+            REASON_STORE_ERROR,
         )
         async_dispatcher_send(hass, update_signal(entry_id))
         return
@@ -147,16 +144,16 @@ async def async_ingest_state(
     async_dispatcher_send(hass, update_signal(entry_id))
 
 
-def async_subscribe(
-    hass: HomeAssistant, entry_id: str, runtime: RuntimeData
-) -> list[Callable[[], None]]:
-    """为每个启用的映射订阅其源实体；返回取消函数列表。"""
-    unsubs: list[Callable[[], None]] = []
+def async_subscribe(hass: HomeAssistant, entry_id: str, runtime: RuntimeData) -> None:
+    """为每个启用的映射订阅其源实体。
+
+    边建边登记到 `runtime.unsubs`：中途抛错时调用方的回滚能覆盖已建立的部分，
+    否则前 N-1 个取消函数会随局部变量一起丢失，HA 重试 setup 就会重复订阅。
+    """
     for mapping in load_mappings_of(hass, entry_id):
         if not mapping.enabled:
             continue
-        unsubs.append(_async_subscribe_one(hass, entry_id, runtime, mapping))
-    return unsubs
+        runtime.unsubs.append(_async_subscribe_one(hass, entry_id, runtime, mapping))
 
 
 def load_mappings_of(hass: HomeAssistant, entry_id: str) -> list[EntityMapping]:
@@ -197,12 +194,14 @@ def _async_subscribe_one(
     ) -> None:
         try:
             await async_ingest_state(hass, entry_id, runtime, mapping, state)
-        except Exception as exc:  # noqa: BLE001 - 任何异常都不得逃逸到事件循环
+        except Exception:  # noqa: BLE001 - 任何异常都不得逃逸到事件循环
+            runtime.state = replace(runtime.state, last_skip_reason=REASON_STORE_ERROR)
             _LOGGER.error(
                 "摄入异常 entity_id=%s mapping_id=%s reason=%s",
                 state.entity_id,
                 mapping.mapping_id,
-                type(exc).__name__,
+                REASON_STORE_ERROR,
             )
+            async_dispatcher_send(hass, update_signal(entry_id))
 
     return async_track_state_change_event(hass, [mapping.source_entity], _handle)

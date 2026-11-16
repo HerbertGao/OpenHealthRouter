@@ -202,7 +202,12 @@ async def test_cancelled_unload_still_closes_store(
     assert entered.is_set()
 
     unload_task = asyncio.create_task(ohr.async_unload_entry(hass, entry))
-    await asyncio.sleep(0.05)
+    # 等平台卸载完成、进入排空等待后再取消，消除固定 sleep 的时序抖动
+    for _ in range(200):
+        if entry.runtime_data.closed:
+            break
+        await asyncio.sleep(0.005)
+    assert entry.runtime_data.closed, "应已进入排空阶段"
     unload_task.cancel()
     release.set()
 

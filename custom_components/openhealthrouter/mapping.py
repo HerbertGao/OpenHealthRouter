@@ -109,6 +109,11 @@ class Skipped:
     mapping_id: str | None = None
     entity_id: str | None = None
 
+    def __post_init__(self) -> None:
+        # spec：原因码必须属于闭集，否则投影会显示一个未定义的码
+        if self.reason not in REASON_CODES:
+            raise ValueError(f"未注册的跳过原因码: {self.reason}")
+
 
 @dataclass(frozen=True)
 class _ResolvedTime:
@@ -233,7 +238,9 @@ def _resolve_unit(
 ) -> str | Skipped:
     spec = get_metric(mapping.metric)
     if spec is None:
-        return Skipped(REASON_EVENT_INVALID, mapping.mapping_id, view.entity_id)
+        # 指标未注册属契约层问题：留到构造时由契约拒绝，归 event_invalid，
+        # 不要在这里抢占时间/单位原因码的优先级
+        return mapping.unit
 
     if mapping.unit_attribute is not None:
         raw = _read_attribute(view.attributes, mapping.unit_attribute)
@@ -288,9 +295,7 @@ def map_state_to_event(
         return resolved
 
     observed: dict[str, Any] = {
-        "start": resolved.value.isoformat()
-        if isinstance(resolved.value, date) and not isinstance(resolved.value, datetime)
-        else resolved.value.isoformat(),
+        "start": resolved.value.isoformat(),
         "precision": resolved.precision,
         "timezone": view.timezone_name,
     }

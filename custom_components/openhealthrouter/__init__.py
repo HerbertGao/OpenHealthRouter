@@ -33,8 +33,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     runtime = RuntimeData(store=store)
     entry.runtime_data = runtime
-    runtime.unsubs.extend(async_subscribe(hass, entry.entry_id, runtime))
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    try:
+        async_subscribe(hass, entry.entry_id, runtime)
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    except BaseException:
+        # 回滚：否则 HA 重试 setup 会再订阅一次，同一变化被处理两遍
+        runtime.closed = True
+        for unsub in runtime.unsubs:
+            unsub()
+        runtime.unsubs.clear()
+        try:
+            # 平台转发可能部分成功，必须一并撤掉，否则重试后实体重复注册
+            await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        except Exception:  # noqa: BLE001 - 回滚尽力而为，不掩盖原始异常
+            _LOGGER.warning("回滚平台卸载失败")
+        runtime.store.store.close()
+        entry.runtime_data = None
+        raise
     return True
 
 
@@ -69,12 +84,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pending.cancel()
                 raise
     finally:
-        # 幂等关库：只置标志、无 I/O、不取写锁（取消路径也必须执行）
+        # 幂等关库：EventStore 的连接是每操作新建，close() 只置 _closed 标志，
+        # 不持有连接、不取写锁，因此同步调用不会阻塞，取消路径也必须执行
         runtime.store.store.close()
 
     runtime.unload_ok = True
     return True
-
-
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)

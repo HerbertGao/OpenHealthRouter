@@ -152,9 +152,13 @@ class OhrConfigFlow(ConfigFlow, domain=DOMAIN):
 class OhrOptionsFlow(OptionsFlow):
     """映射的增删改；保存后重载条目让订阅按新映射重建。"""
 
+    _editing_id: str | None = None
+
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        # 回到菜单意味着上一次编辑被放弃：复位阶段标记，避免下次直接跳过选择
+        self._editing_id = None
         return self.async_show_menu(
             step_id="init", menu_options=["add", "edit", "delete"]
         )
@@ -166,6 +170,8 @@ class OhrOptionsFlow(OptionsFlow):
         hass: HomeAssistant = self.hass
         new_options = dict(self.config_entry.options)
         new_options["mappings"] = mappings
+        # 先写入再重载，让订阅按新映射重建；随后以同一份 options 结束流程
+        # （OptionsFlow 的 create_entry data 会覆盖 options，必须与之一致）
         hass.config_entries.async_update_entry(self.config_entry, options=new_options)
         await hass.config_entries.async_reload(self.config_entry.entry_id)
         return self.async_create_entry(title="", data=new_options)
@@ -191,13 +197,19 @@ class OhrOptionsFlow(OptionsFlow):
                 errors = self._validation_errors(mapping)
                 if not errors:
                     mappings = self._mappings()
-                    mappings.append(mapping.model_dump())
-                    return await self._store_mappings(mappings)
+                    duplicate = any(
+                        item["mapping_id"] == mapping.mapping_id for item in mappings
+                    )
+                    if duplicate:
+                        errors["base"] = "mapping_exists"
+                    else:
+                        mappings.append(mapping.model_dump())
+                        return await self._store_mappings(mappings)
         return self.async_show_form(
             step_id="add", data_schema=_mapping_schema(user_input), errors=errors
         )
 
-    def _select_mapping_schema(self, step_id: str) -> Schema:
+    def _select_mapping_schema(self) -> Schema:
         return Schema(
             {
                 Required("mapping_id"): SelectSelector(
@@ -211,44 +223,65 @@ class OhrOptionsFlow(OptionsFlow):
     async def async_step_edit(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        """两个阶段：先选映射，再填表单。用 `_editing_id` 区分，不靠字段嗅探。"""
         mappings = self._mappings()
         if not mappings:
             return self.async_abort(reason="no_mappings")
-        if user_input is not None and "mapping_id" in user_input:
-            selected = next(
-                (m for m in mappings if m["mapping_id"] == user_input["mapping_id"]),
-                None,
-            )
-            if selected is not None:
+
+        if self._editing_id is None:
+            if user_input is None:
                 return self.async_show_form(
-                    step_id="edit",
-                    data_schema=_mapping_schema(
-                        _mapping_defaults(EntityMapping(**selected))
-                    ),
-                    description_placeholders={"mapping_id": selected["mapping_id"]},
+                    step_id="edit", data_schema=self._select_mapping_schema()
                 )
-        errors: dict[str, str] = {}
-        if user_input is not None and "source_entity" in user_input:
+            selected_id = str(user_input.get("mapping_id", ""))
+            selected = next(
+                (item for item in mappings if item["mapping_id"] == selected_id), None
+            )
+            if selected is None:
+                return self.async_abort(reason="mapping_missing")
             try:
-                edited = _to_mapping(user_input)
-            except ValueError:
-                errors["base"] = "invalid"
-            else:
-                errors = self._validation_errors(edited)
-                if not errors:
-                    updated: list[dict[str, Any]] = [
+                defaults = _mapping_defaults(EntityMapping(**selected))
+            except ValueError, KeyError:
+                return self.async_abort(reason="invalid_mapping")
+            self._editing_id = selected_id
+            return self.async_show_form(
+                step_id="edit",
+                data_schema=_mapping_schema(defaults),
+                description_placeholders={"mapping_id": selected_id},
+            )
+
+        errors: dict[str, str] = {}
+        original_id = self._editing_id
+        try:
+            edited = _to_mapping(user_input or {})
+        except ValueError, KeyError:
+            errors["base"] = "invalid"
+        else:
+            errors = self._validation_errors(edited)
+            if not errors:
+                if not any(item["mapping_id"] == original_id for item in mappings):
+                    return self.async_abort(reason="mapping_missing")
+                clash = any(
+                    item["mapping_id"] == edited.mapping_id
+                    and item["mapping_id"] != original_id
+                    for item in mappings
+                )
+                if clash:
+                    errors["base"] = "mapping_exists"
+                else:
+                    updated = [
                         edited.model_dump()
-                        if item["mapping_id"] == edited.mapping_id
+                        if item["mapping_id"] == original_id
                         else item
                         for item in mappings
                     ]
-                    if not any(
-                        item["mapping_id"] == edited.mapping_id for item in mappings
-                    ):
-                        updated.append(edited.model_dump())
+                    self._editing_id = None
                     return await self._store_mappings(updated)
         return self.async_show_form(
-            step_id="edit", data_schema=_mapping_schema(user_input), errors=errors
+            step_id="edit",
+            data_schema=_mapping_schema(user_input),
+            errors=errors,
+            description_placeholders={"mapping_id": original_id},
         )
 
     async def async_step_delete(
@@ -261,5 +294,5 @@ class OhrOptionsFlow(OptionsFlow):
             kept = [m for m in mappings if m["mapping_id"] != user_input["mapping_id"]]
             return await self._store_mappings(kept)
         return self.async_show_form(
-            step_id="delete", data_schema=self._select_mapping_schema("delete")
+            step_id="delete", data_schema=self._select_mapping_schema()
         )

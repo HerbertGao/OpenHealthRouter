@@ -189,8 +189,11 @@ async def test_own_entities_are_never_ingested(
     mapping_factory: Any,
     set_state: Any,
     read_events: Any,
+    register_platform: Any,
 ) -> None:
     own_entity = "sensor.openhealthrouter_ingested_events"
+    # 守卫生效靠实体注册表里的平台名，不靠实体 ID 命名巧合
+    register_platform(own_entity, "openhealthrouter")
     mapping = mapping_factory(
         mapping_id=f"{own_entity}::body.weight",
         source_entity=own_entity,
@@ -305,9 +308,35 @@ async def test_ingestion_makes_no_outbound_connection(
     def deny(*args: Any, **kwargs: Any) -> Any:
         raise AssertionError("摄入不应发起外部网络连接")
 
-    monkeypatch.setattr(socket.socket, "connect", deny)
+    for name in ("connect", "connect_ex", "sendto"):
+        monkeypatch.setattr(socket.socket, name, deny, raising=False)
+    monkeypatch.setattr(socket, "create_connection", deny)
+    monkeypatch.setattr(socket, "getaddrinfo", deny)
 
     entry = await setup_entry([mapping_factory()])
     await _change(hass, set_state)
 
     assert len(read_events(entry)) == 1
+
+
+async def test_same_value_with_different_measured_at_writes_two_events(
+    hass: HomeAssistant,
+    setup_entry: Any,
+    mapping_factory: Any,
+    set_state: Any,
+    read_events: Any,
+) -> None:
+    """观察时间参与身份：同值不同时刻必须各自入库（去重不能过度）。"""
+    entry = await setup_entry([mapping_factory()])
+
+    await _change(hass, set_state, force_update=True)
+    await _change(
+        hass,
+        set_state,
+        force_update=True,
+        measured_at="2026-11-12T09:00:00+08:00",
+    )
+
+    events = read_events(entry)
+    assert len(events) == 2
+    assert len({event.event_id for event in events}) == 2

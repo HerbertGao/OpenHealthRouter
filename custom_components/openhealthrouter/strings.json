@@ -76,10 +76,13 @@
       "estimated_required": "Vendor-derived mappings must declare the estimated marker.",
       "time_source_missing": "Declare an observation time attribute or enable the fallback.",
       "provenance_not_registered": "The data nature is not supported.",
-      "invalid": "The submitted mapping is invalid."
+      "invalid": "The submitted mapping is invalid.",
+      "mapping_exists": "A mapping for this entity and metric already exists."
     },
     "abort": {
-      "no_mappings": "No mappings are configured yet."
+      "no_mappings": "No mappings are configured yet.",
+      "mapping_missing": "The selected mapping no longer exists.",
+      "invalid_mapping": "The stored mapping is invalid; delete and recreate it."
     }
   }
 }

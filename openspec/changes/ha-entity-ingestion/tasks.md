@@ -52,7 +52,7 @@
 
 - [x] 9.0 把 `pyproject.toml` 的 `homeassistant` 下限提升到与支持矩阵一致（HA >= 2026.10），重新锁定并确认 `ConfigEntry[RuntimeData]` 泛型可在 pyright 下通过；并验证 `uv sync` 成功且 `uv run pyright` 全绿
 - [x] 9.1 全量门禁：`ruff format --check`、`ruff check`、`pyright`、`check_contracts.py`、`pytest`、敏感数据扫描；并验证本地一次跑通
-- [ ] 9.2 独立 review 无阻断项后推送，CI 的 `check` 与 `hassfest` 全绿；并验证结果对应该提交
+- [x] 9.2 独立 review 无阻断项后推送，CI 的 `check` 与 `hassfest` 全绿；并验证结果对应该提交
 
 ## Workflow follow-up
 

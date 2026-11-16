@@ -70,7 +70,6 @@ class _BaseSensor(SensorEntity):
 
 class _IngestedTotalSensor(_BaseSensor):
     _attr_name = "Ingested events"
-    _attr_native_value = 0
 
     def __init__(self, entry: ConfigEntry, runtime: RuntimeData) -> None:
         super().__init__(entry, runtime, SENSOR_INGESTED_TOTAL)

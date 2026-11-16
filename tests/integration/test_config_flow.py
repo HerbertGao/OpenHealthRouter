@@ -126,3 +126,40 @@ async def test_delete_mapping_stops_ingestion(
     assert entry.options.get("mappings") == []
     assert len(entry.runtime_data.unsubs) == 0
     assert read_events(entry) == []
+
+
+async def test_edit_that_changes_metric_removes_old_mapping(
+    hass: HomeAssistant,
+    setup_entry: Any,
+    mapping_factory: Any,
+    set_state: Any,
+) -> None:
+    """编辑改指标后只能剩一条映射：旧 mapping_id 不得残留（否则重复订阅）。"""
+    set_state()
+    entry = await setup_entry([mapping_factory()])
+    original_id = entry.options["mappings"][0]["mapping_id"]
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "edit"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={"mapping_id": original_id}
+    )
+    assert result.get("type") is FlowResultType.FORM
+
+    changed = mapping_factory(
+        metric="body.bmi",
+        unit="kg/m²",
+        provenance_type="derived.openhealthrouter",
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input=_form_input(changed)
+    )
+    await hass.async_block_till_done()
+
+    mappings = entry.options["mappings"]
+    assert len(mappings) == 1, mappings
+    assert mappings[0]["metric"] == "body.bmi"
+    assert mappings[0]["mapping_id"] != original_id
+    assert len(entry.runtime_data.unsubs) == 1
