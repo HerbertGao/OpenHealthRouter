@@ -116,8 +116,8 @@ OpenHealthRouter/
 
 ## 支持矩阵
 
-- Home Assistant Core >= 2026.10.x（其内置 pydantic 2.13.5 与 manifest pin 一致）
-- Python >= 3.14.2（跟随 HA Core 要求）
+- Home Assistant Core >= 2026.10.x、Python >= 3.14.2
+- manifest requirements 为 `pydantic>=2.12.2,<3` 区间（覆盖 HA 2026.2.3 与 2026.10.x 两个锁分叉），随 HA 内置 pydantic 升级自动兼容；hassfest 按最新 HA 约束校验
 - 更低 HA 版本未验证：uv.lock 存在 HA/pydantic 双版本分叉（见 openspec/changes/health-event-contract/design.md D8），使用其他版本前需独立变更评估。
 
 ## 免责声明

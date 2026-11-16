@@ -13,7 +13,7 @@ SAMPLE_FIXTURE = (
 def test_manifest_is_valid_json() -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     assert manifest["domain"] == "openhealthrouter"
-    assert manifest["requirements"] == ["pydantic==2.13.5"]
+    assert manifest["requirements"] == ["pydantic>=2.12.2,<3"]
 
 
 def test_synthetic_fixture_is_valid_json() -> None:

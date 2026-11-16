@@ -5,6 +5,6 @@
   "documentation": "https://github.com/herbertgao/OpenHealthRouter",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/herbertgao/OpenHealthRouter/issues",
-  "requirements": ["pydantic==2.13.5"],
+  "requirements": ["pydantic>=2.12.2,<3"],
   "version": "0.1.0"
 }

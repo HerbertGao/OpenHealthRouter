@@ -95,6 +95,8 @@ uv.lock 存在 HA 双版本分叉（实测：`homeassistant 2026.2.3` for python
 
 - 备选：不声明 requirements、复用 HA 内置 pydantic → 拒绝：custom integration 不允许隐式依赖宿主包，hassfest 要求 requirements 显式声明。
 
+**实现期修正（CI 证据驱动）**：hassfest 按 HA dev 约束校验（2026-11 要求 pydantic==2.14.1），而稳定版 HA 2026.10.4 锁 2.13.5——精确 pin 必然与其中一个冲突。改为区间 `pydantic>=2.12.2,<3`：覆盖两个锁分叉，pip 在 HA 环境中解析至 HA 自身 pin，无安装冲突。原"精确 pin"结论限于此事实（hassfest 跟踪 dev 而稳定版滞后）不成立，其余论证（显式声明、支持矩阵）不变。
+
 ## Risks / Trade-offs
 
 - [pydantic pin 与支持矩阵绑定，HA 升级需同步] → 升级 HA 支持范围时同步更新 pin（独立 OpenSpec 变更）。
