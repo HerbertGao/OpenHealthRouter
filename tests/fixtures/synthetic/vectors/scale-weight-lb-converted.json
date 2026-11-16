@@ -1,0 +1,42 @@
+{
+  "name": "scale-weight-lb-converted",
+  "input": {
+    "schemaVersion": "1.0",
+    "subjectRef": "subject_local_1",
+    "observedAt": {
+      "start": "2026-01-01T00:00:00+08:00",
+      "precision": "second",
+      "timezone": "Asia/Shanghai"
+    },
+    "recordedAt": "2026-01-01T00:00:01+08:00",
+    "deviceRef": "device_local_1",
+    "provenance": {
+      "type": "observation",
+      "capturedBy": "device",
+      "converter": "entity-mapper@1"
+    },
+    "quality": {
+      "status": "valid",
+      "confirmation": "unconfirmed",
+      "issues": []
+    },
+    "context": {},
+    "evidence": {
+      "rawAttributes": {}
+    },
+    "metric": "body.weight",
+    "value": 160.0,
+    "unit": "lb",
+    "source": {
+      "kind": "ha_entity",
+      "integration": "synthetic_scale",
+      "entityId": "sensor.synthetic_scale_weight",
+      "nativeId": "synthetic-measurement-0003"
+    }
+  },
+  "expect": "accept",
+  "expected_id": "evt_40a49b580c67b2e733d95958a258c5291339c96b0d33c5f6bdbe09c0d3af14d7",
+  "expected_issues": [
+    "unit_converted"
+  ]
+}

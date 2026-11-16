@@ -1,0 +1,49 @@
+{
+  "name": "bmi-components-order-a",
+  "input": {
+    "schemaVersion": "1.0",
+    "subjectRef": "subject_local_1",
+    "observedAt": {
+      "start": "2026-01-01T00:00:00+08:00",
+      "precision": "second",
+      "timezone": "Asia/Shanghai"
+    },
+    "recordedAt": "2026-01-01T00:00:01+08:00",
+    "deviceRef": "device_local_1",
+    "provenance": {
+      "type": "observation",
+      "capturedBy": "device",
+      "converter": "entity-mapper@1"
+    },
+    "quality": {
+      "status": "valid",
+      "confirmation": "unconfirmed",
+      "issues": []
+    },
+    "context": {},
+    "evidence": {
+      "rawAttributes": {}
+    },
+    "metric": "body.bmi",
+    "components": [
+      {
+        "metric": "body.weight",
+        "value": 72.4,
+        "unit": "kg"
+      },
+      {
+        "metric": "body.fat_percentage",
+        "value": 18.5,
+        "unit": "%"
+      }
+    ],
+    "source": {
+      "kind": "ha_entity",
+      "integration": "synthetic_scale",
+      "entityId": "sensor.synthetic_scale_weight"
+    }
+  },
+  "expect": "accept",
+  "expected_id": "evt_562a7af53f833de1954f0192d7a8f22e6f3cf1309509dc5494887d6a7b4b3bc9",
+  "expected_issues": []
+}

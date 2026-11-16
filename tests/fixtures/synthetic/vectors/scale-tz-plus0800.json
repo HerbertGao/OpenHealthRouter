@@ -1,0 +1,39 @@
+{
+  "name": "scale-tz-plus0800",
+  "input": {
+    "schemaVersion": "1.0",
+    "subjectRef": "subject_local_1",
+    "observedAt": {
+      "start": "2026-01-01T00:00:00+08:00",
+      "precision": "second",
+      "timezone": "Asia/Shanghai"
+    },
+    "recordedAt": "2026-01-01T00:00:01+08:00",
+    "deviceRef": "device_local_1",
+    "provenance": {
+      "type": "observation",
+      "capturedBy": "device",
+      "converter": "entity-mapper@1"
+    },
+    "quality": {
+      "status": "valid",
+      "confirmation": "unconfirmed",
+      "issues": []
+    },
+    "context": {},
+    "evidence": {
+      "rawAttributes": {}
+    },
+    "metric": "body.weight",
+    "value": 72.4,
+    "unit": "kg",
+    "source": {
+      "kind": "ha_entity",
+      "integration": "synthetic_scale",
+      "entityId": "sensor.synthetic_scale_weight"
+    }
+  },
+  "expect": "accept",
+  "expected_id": "evt_13a254fef03f9875da1d1c154d2c74a65c1ee1860308d402c29ee7afd1022b33",
+  "expected_issues": []
+}

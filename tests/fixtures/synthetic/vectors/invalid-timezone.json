@@ -1,0 +1,39 @@
+{
+  "name": "invalid-timezone",
+  "input": {
+    "schemaVersion": "1.0",
+    "subjectRef": "subject_local_1",
+    "observedAt": {
+      "start": "2026-01-01T00:00:00+08:00",
+      "precision": "second",
+      "timezone": "Mars/Olympus"
+    },
+    "recordedAt": "2026-01-01T00:00:01+08:00",
+    "deviceRef": "device_local_1",
+    "provenance": {
+      "type": "observation",
+      "capturedBy": "device",
+      "converter": "entity-mapper@1"
+    },
+    "quality": {
+      "status": "valid",
+      "confirmation": "unconfirmed",
+      "issues": []
+    },
+    "context": {},
+    "evidence": {
+      "rawAttributes": {}
+    },
+    "metric": "body.weight",
+    "value": 72.4,
+    "unit": "kg",
+    "source": {
+      "kind": "ha_entity",
+      "integration": "synthetic_scale",
+      "entityId": "sensor.synthetic_scale_weight",
+      "nativeId": "synthetic-measurement-0001"
+    }
+  },
+  "expect": "reject",
+  "expected_error_contains": "非法时区"
+}

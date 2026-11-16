@@ -114,6 +114,12 @@ OpenHealthRouter/
 - [Xiaomi BLE 集成](https://www.home-assistant.io/integrations/xiaomi_ble)
 - [FHIR R4 Observation](https://hl7.org/fhir/R4/observation.html) 与 [Provenance](https://hl7.org/fhir/R4/provenance.html)：作为外部互操作参考，不直接作为内部存储模型。
 
+## 支持矩阵
+
+- Home Assistant Core >= 2026.10.x（其内置 pydantic 2.13.5 与 manifest pin 一致）
+- Python >= 3.14.2（跟随 HA Core 要求）
+- 更低 HA 版本未验证：uv.lock 存在 HA/pydantic 双版本分叉（见 openspec/changes/health-event-contract/design.md D8），使用其他版本前需独立变更评估。
+
 ## 免责声明
 
 OpenHealthRouter 用于个人健康数据整理与互操作，不是医疗器械，不提供诊断或治疗建议。数据异常、设备故障或导出问题不应被解释为医学结论。

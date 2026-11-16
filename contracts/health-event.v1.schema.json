@@ -1,0 +1,358 @@
+{
+  "$defs": {
+    "Component": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "title": "Metric",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "metric",
+        "value",
+        "unit"
+      ],
+      "title": "Component",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "rawAttributes": {
+          "additionalProperties": true,
+          "title": "Rawattributes",
+          "type": "object"
+        }
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "ObservedAt": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End"
+        },
+        "precision": {
+          "enum": [
+            "second",
+            "minute",
+            "day"
+          ],
+          "title": "Precision",
+          "type": "string"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "format": "date-time",
+              "type": "string"
+            }
+          ],
+          "title": "Start"
+        },
+        "timezone": {
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "precision",
+        "timezone"
+      ],
+      "title": "ObservedAt",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "capturedBy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capturedby"
+        },
+        "converter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Converter"
+        },
+        "type": {
+          "enum": [
+            "observation",
+            "derived.vendor",
+            "derived.openhealthrouter",
+            "derived.user"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Quality": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation": {
+          "default": "unconfirmed",
+          "enum": [
+            "not_required",
+            "unconfirmed",
+            "confirmed"
+          ],
+          "title": "Confirmation",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "status": {
+          "default": "valid",
+          "enum": [
+            "valid",
+            "suspect",
+            "invalid"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "title": "Quality",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "entityId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entityid"
+        },
+        "integration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Integration"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "nativeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nativeid"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "components": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/Component"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Components"
+    },
+    "context": {
+      "additionalProperties": true,
+      "title": "Context",
+      "type": "object"
+    },
+    "correctionOf": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correctionof"
+    },
+    "derivedFrom": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Derivedfrom",
+      "type": "array"
+    },
+    "deviceRef": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deviceref"
+    },
+    "eventId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Eventid"
+    },
+    "evidence": {
+      "$ref": "#/$defs/Evidence"
+    },
+    "metric": {
+      "title": "Metric",
+      "type": "string"
+    },
+    "observedAt": {
+      "$ref": "#/$defs/ObservedAt"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "quality": {
+      "$ref": "#/$defs/Quality"
+    },
+    "recordedAt": {
+      "format": "date-time",
+      "title": "Recordedat",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/Source"
+    },
+    "subjectRef": {
+      "title": "Subjectref",
+      "type": "string"
+    },
+    "unit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Unit"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Value"
+    }
+  },
+  "required": [
+    "subjectRef",
+    "metric",
+    "observedAt",
+    "recordedAt",
+    "source",
+    "provenance"
+  ],
+  "title": "HealthEvent",
+  "type": "object"
+}
