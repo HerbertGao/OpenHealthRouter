@@ -51,7 +51,7 @@
 ## 8. 全量回归
 
 - [x] 8.1 全量门禁：`ruff format --check`、`ruff check`、`pyright`、`check_contracts.py`、`pytest`、敏感数据扫描全部通过；并验证本地一次跑通
-- [ ] 8.2 独立 review 无阻断项后推送，CI 的 `check` 与 `hassfest` 两 job 全绿；并验证 CI 运行结果与该提交对应
+- [x] 8.2 独立 review 无阻断项后推送，CI 的 `check` 与 `hassfest` 两 job 全绿；并验证 CI 运行结果与该提交对应
 
 ## Workflow follow-up
 
