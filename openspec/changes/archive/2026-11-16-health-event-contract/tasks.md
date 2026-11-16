@@ -29,7 +29,7 @@
 ## 5. 依赖声明与全量回归
 
 - [x] 5.1 在 `manifest.json` requirements 加入 pydantic 版本声明——实现期修正：hassfest 按 HA dev 约束（2.14.1）校验，与稳定版 HA 2026.10.4 所带 2.13.5 冲突，改用 `pydantic>=2.12.2,<3` 区间覆盖双分叉（design D8 实现期修正段）；docs 支持矩阵已声明（HA >= 2026.10.x、Python >= 3.14.2）；`uv pip list` 中 pydantic 仅一个版本
-- [ ] 5.2 全量回归：ruff format --check、ruff check、pyright、check_contracts.py、pytest、敏感数据扫描全部通过；并验证独立 review 无阻断项后推送 CI 全绿
+- [x] 5.2 全量回归：ruff format --check、ruff check、pyright、check_contracts.py、pytest、敏感数据扫描全部通过；并验证独立 review 无阻断项后推送 CI 全绿
 
 ## Workflow follow-up
 
