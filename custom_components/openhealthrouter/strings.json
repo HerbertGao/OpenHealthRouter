@@ -1,3 +1,85 @@
 {
-  "title": "OpenHealthRouter"
+  "title": "OpenHealthRouter",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up OpenHealthRouter",
+        "description": "Creates a local health event store. Add entity mappings afterwards from the integration options."
+      }
+    },
+    "abort": {
+      "already_configured": "OpenHealthRouter is already configured. Manage mappings in its options."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Manage mappings",
+        "menu_options": {
+          "add": "Add mapping",
+          "edit": "Edit mapping",
+          "delete": "Delete mapping"
+        }
+      },
+      "add": {
+        "title": "Add mapping",
+        "description": "Only the selected entity is read, and only changes after saving are recorded.",
+        "data": {
+          "source_entity": "Source entity",
+          "subject_ref": "Subject reference",
+          "metric": "Metric",
+          "unit": "Unit",
+          "unit_attribute": "Unit attribute (optional)",
+          "value_attribute": "Value attribute (empty = entity state)",
+          "device_ref": "Device reference (optional)",
+          "native_id_attribute": "Native ID attribute (optional)",
+          "observed_at_attribute": "Observation time attribute (optional)",
+          "fallback_time": "Fall back to the state time when no attribute is available",
+          "provenance_type": "Data nature",
+          "quality_issues": "Quality markers",
+          "enabled": "Enabled"
+        }
+      },
+      "edit": {
+        "title": "Edit mapping",
+        "description": "Editing {mapping_id}. Changes take effect after the integration reloads.",
+        "data": {
+          "source_entity": "Source entity",
+          "subject_ref": "Subject reference",
+          "metric": "Metric",
+          "unit": "Unit",
+          "unit_attribute": "Unit attribute (optional)",
+          "value_attribute": "Value attribute (empty = entity state)",
+          "device_ref": "Device reference (optional)",
+          "native_id_attribute": "Native ID attribute (optional)",
+          "observed_at_attribute": "Observation time attribute (optional)",
+          "fallback_time": "Fall back to the state time when no attribute is available",
+          "provenance_type": "Data nature",
+          "quality_issues": "Quality markers",
+          "enabled": "Enabled"
+        }
+      },
+      "delete": {
+        "title": "Delete mapping",
+        "description": "Deleting a mapping stops future ingestion. Events already stored are kept.",
+        "data": {
+          "mapping_id": "Mapping"
+        }
+      }
+    },
+    "error": {
+      "entity_not_found": "The source entity does not exist.",
+      "entity_is_self": "The source entity belongs to this integration.",
+      "metric_not_registered": "The metric is not registered.",
+      "unit_not_allowed": "The unit is not allowed for this metric.",
+      "issue_not_registered": "An unknown quality marker was used.",
+      "estimated_required": "Vendor-derived mappings must declare the estimated marker.",
+      "time_source_missing": "Declare an observation time attribute or enable the fallback.",
+      "provenance_not_registered": "The data nature is not supported.",
+      "invalid": "The submitted mapping is invalid."
+    },
+    "abort": {
+      "no_mappings": "No mappings are configured yet."
+    }
+  }
 }

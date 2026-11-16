@@ -50,6 +50,11 @@ def get_metric(name: str) -> MetricSpec | None:
     return _METRICS.get(name)
 
 
+def list_metrics() -> dict[str, MetricSpec]:
+    """返回已注册指标的副本（供表单与校验遍历，不暴露内部字典）。"""
+    return dict(_METRICS)
+
+
 def convert_unit(
     value: float, from_unit: str, to_unit: str, metric: str
 ) -> float | None:

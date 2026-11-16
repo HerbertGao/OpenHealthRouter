@@ -219,3 +219,38 @@ def test_time_key_format_is_single_shape() -> None:
     assert time_key(moment) == "2026-11-11T16:00:00.000000Z"
     assert len(time_key(moment)) == len("2026-11-11T16:00:00.000000Z")
     assert time.perf_counter() > 0
+
+
+async def test_executor_is_used_for_every_operation(tmp_path: Path, make_event) -> None:
+    """注释：注入的执行器必须承担 open/写/读/删/备份/关库。"""
+    import asyncio
+
+    from custom_components.openhealthrouter.async_store import AsyncEventStore
+
+    seen: list[str] = []
+
+    async def executor(func, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+        seen.append(getattr(func, "__name__", type(func).__name__))
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    store = await AsyncEventStore.open(tmp_path / "events.db", executor=executor)
+    try:
+        event = make_event()
+        await store.insert_events([event])
+        await store.query()
+        await store.get_event(event.event_id)
+        await store.backup_to(tmp_path / "backup.db")
+        await store.delete_events([event.event_id])
+    finally:
+        await store.close()
+
+    for expected in (
+        "open",
+        "insert_events",
+        "query",
+        "get_event",
+        "backup_to",
+        "delete_events",
+        "close",
+    ):
+        assert expected in seen, (expected, seen)
